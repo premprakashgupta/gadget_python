@@ -1,0 +1,17 @@
+[Unit]
+Description=Smart Classroom Monitoring Gadget
+After=network.target
+
+[Service]
+# Replace 'pi' with your actual username if different
+User=pi
+WorkingDirectory=/home/pi/classroom_monitoring/gadget-python
+# Adjust the path to your python executable (venv recommended)
+ExecStart=/home/pi/classroom_monitoring/gadget-python/.venv/bin/python main.py
+Restart=always
+RestartSec=10
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

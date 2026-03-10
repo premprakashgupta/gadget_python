@@ -1,0 +1,7 @@
+opencv-python-headless
+onnxruntime
+sherpa-onnx
+sounddevice
+requests
+PyYAML
+numpy

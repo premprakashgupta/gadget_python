@@ -1,0 +1,37 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Models
+models/*
+!models/*.onnx
+
+# Local Data
+data/*
+!data/known_faces/
+!data/*.db
+*.log
+*_log.txt
+
+# Test / Development Files
+tests/
+export_onnx.py
+sync.bat
+
+# Sensitive Info
+config/config.yaml
+.env
+
+# Tooling
+.vscode/
+
+# OS specific
+.DS_Store
+Thumbs.db
