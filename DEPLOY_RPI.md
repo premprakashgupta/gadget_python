@@ -16,10 +16,11 @@ sudo apt-get install -y libatlas-base-dev libopenjp2-7 libtiff5 libv4l-dev libjp
 ## 2. Clone and Setup
 Move the `gadget-python` folder to `/home/pi/classroom_monitoring/`.
 
-Create a virtual environment and install requirements:
+Create a virtual environment (using Python 3.11 or 3.12) and install requirements:
 ```bash
 cd /home/pi/classroom_monitoring/gadget-python
-python3 -m venv .venv
+# Create venv specifically with python 3.11 (safe for AI libraries)
+python3.11 -m venv .venv 
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
