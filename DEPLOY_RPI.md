@@ -6,6 +6,9 @@ To ensure the monitoring gadget starts automatically whenever the Raspberry Pi i
 
 > [!TIP]
 > **Use Raspberry Pi OS (64-bit)** for the best performance and compatibility with AI models like ONNX and Sherpa.
+> 
+> [!WARNING]
+> **Debian 13 (Trixie)** users: Your system defaults to Python 3.13, which is currently **too new** for most AI libraries. You must install and use **Python 3.12** or **3.11** inside your virtual environment.
 
 First, update your system and install necessary vision and audio dependencies:
 ```bash
