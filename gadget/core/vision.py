@@ -177,12 +177,30 @@ class VisionEngine:
 
     def _get_camera(self):
         """Helper to get a reliable video capture object."""
-        # Try V4L2 backend first (best for Linux/Raspberry Pi)
-        cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
-        if not cap.isOpened():
+        # Try configured index first
+        indices_to_try = [self.camera_index] + list(range(6))
+        
+        for idx in set(indices_to_try):
+            # Try V4L2 backend first (best for Linux/Raspberry Pi)
+            cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    print(f"[VisionEngine] 🎥 Successfully connected to camera index {idx} (V4L2)")
+                    return cap
+            cap.release()
+            
             # Fallback to backend auto-selection
-            cap = cv2.VideoCapture(self.camera_index)
-        return cap
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    print(f"[VisionEngine] 🎥 Successfully connected to camera index {idx} (Default)")
+                    return cap
+            cap.release()
+            
+        print("⚠️ [VisionEngine] Could not find any working camera across indices 0-5.")
+        return cv2.VideoCapture(-1) # Return a dummy/failing capture object
 
     def identify_teacher(self, frame=None, current_teacher_name=None, detection_threshold=0.60):
         if frame is None:
