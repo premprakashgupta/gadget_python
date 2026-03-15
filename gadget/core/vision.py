@@ -3,11 +3,10 @@ import os
 import glob
 import pickle
 import time
-import onnxruntime as ort
 from PIL import Image
 import numpy as np
 
-# Optimized for Raspberry Pi using Haar Cascades + MobileNetV3 (ONNX)
+# Optimized for Raspberry Pi using Haar Cascades + MobileNetV3 (OpenCV DNN)
 
 class VisionEngine:
     def __init__(self, known_faces_dir, camera_index=0):
@@ -20,15 +19,14 @@ class VisionEngine:
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         self.profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
         
-        # 2. Init MobileNetV3 ONNX session
+        # 2. Init MobileNetV3 via OpenCV DNN
         onnx_model_path = os.path.join(os.path.dirname(__file__), '../../models/mobilenet_v3_small.onnx')
         if not os.path.exists(onnx_model_path):
              # Fallback to local 'models' if relative fails
              onnx_model_path = 'models/mobilenet_v3_small.onnx'
              
-        print(f"[VisionEngine] Loading ONNX model from {onnx_model_path}")
-        self.ort_session = ort.InferenceSession(onnx_model_path)
-        self.input_name = self.ort_session.get_inputs()[0].name
+        print(f"[VisionEngine] Loading model via OpenCV DNN from {onnx_model_path}")
+        self.net = cv2.dnn.readNetFromONNX(onnx_model_path)
         
         # Preprocessing constants (Matching torchvision.transforms.Normalize)
         self.mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 3).astype(np.float32)
@@ -86,9 +84,9 @@ class VisionEngine:
             # HWC to CHW and add batch dimension
             face_input = np.transpose(face_norm, (2, 0, 1))[np.newaxis, :]
             
-            # --- ONNX Inference ---
-            ort_inputs = {self.input_name: face_input}
-            embedding = self.ort_session.run(None, ort_inputs)[0]
+            # --- OpenCV DNN Inference ---
+            self.net.setInput(face_input)
+            embedding = self.net.forward()
             
             # Normalize embedding (L2)
             norm = np.linalg.norm(embedding, ord=2, axis=1, keepdims=True)
