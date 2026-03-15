@@ -33,6 +33,14 @@ The project is configured to start automatically when the Pi boots. You can cont
   ```
   *(Re-enables auto-start and starts the monitoring system immediately)*
 
+## 🌐 Deployment Configuration
+To point the gadget towards your production server, modify the `url` in `config/config.yaml`:
+```yaml
+api:
+  url: http://your-server-ip:4000
+```
+*Note: If you want to change the default address for all future setups, update the URL inside `setup_pi.sh`.*
+
 ## 📂 Key Files
 - `setup_pi.sh`: The automated installer for Raspberry Pi.
 - `run.py`: The main entry point for manual execution.
