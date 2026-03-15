@@ -139,8 +139,21 @@ class VisionEngine:
             pkl_path = img_path + ".pkl"
             
             if os.path.exists(pkl_path):
-                with open(pkl_path, 'rb') as f:
-                    encoding = pickle.load(f)
+                try:
+                    with open(pkl_path, 'rb') as f:
+                        encoding = pickle.load(f)
+                except Exception as e:
+                    print(f"⚠️ [VisionEngine] Pickling error for {pkl_path} ({e}). This is likely a legacy PyTorch tensor. Deleting and regenerating with newer model...")
+                    os.remove(pkl_path)
+                    img_bgr = cv2.imread(img_path)
+                    res_list = self.get_encodings(img_bgr) if img_bgr is not None else None
+                    if res_list:
+                        encoding, _ = res_list[0]
+                        with open(pkl_path, 'wb') as f:
+                            pickle.dump(encoding, f)
+                    else:
+                        print(f"⚠️ Could not detect face in {img_path} for fallback regeneration.")
+                        continue
             else:
                 # For initial loading, we still need a single encoding. get_encodings returns a list.
                 # We'll take the first one found in the file.
