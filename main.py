@@ -60,24 +60,24 @@ class ClassroomMonitor:
             # Reload config (monitoring window may have changed)
             self.config = load_config()
             print(f"[Main] Monitoring window: "
-                  f"{self.config['monitoring']['start_time']} → "
+                  f"{self.config['monitoring']['start_time']} -> "
                   f"{self.config['monitoring']['end_time']}")
         return result
 
     def start_engines(self):
         print("\n" + "="*50)
-        print("🚀 INITIALIZING ENGINES (Please wait... ⏳)")
+        print("[!] INITIALIZING ENGINES (Please wait... [TASK])")
         print("="*50)
         
         # 1. Start Vision
-        print("[1/2] 👁️ Starting Vision Engine (loading face models)...")
+        print("[1/2] [EYE] Starting Vision Engine (loading face models)...")
         self.vision = VisionEngine(
             self.config['storage']['known_faces_dir'],
             self.config['monitoring']['camera_index']
         )
         
         # 2. Start Audio
-        print("[2/2] 🎙️ Starting Audio Engine (loading Sherpa-ONNX AI)...")
+        print("[2/2] [MIC] Starting Audio Engine (loading Sherpa-ONNX AI)...")
         sherpa_cfg = self.config.get('sherpa', {})
         self.audio = SherpaAudioEngine(
             model_dir=sherpa_cfg.get('model_dir', 'models/sherpa-onnx-whisper-base'),
@@ -85,11 +85,11 @@ class ClassroomMonitor:
         )
         
         # 3. Load Metadata
-        print("[3/3] 📋 Syncing teacher metadata...")
+        print("[3/3] [LIST] Syncing teacher metadata...")
         self.load_teachers()
         
         print("="*50)
-        print("✅ ALL ENGINES READY")
+        print("[OK] ALL ENGINES READY")
         print("="*50 + "\n")
 
     def load_teachers(self):
@@ -105,7 +105,7 @@ class ClassroomMonitor:
 
         # --- IMMEDIATE SYNC ON STARTUP ---
         # We do this BEFORE starting heavy frames capture/engines to ensure clean state
-        print("[Monitor] 📤 Syncing initial data to server...")
+        print("[Monitor] [SYNC] Syncing initial data to server...")
         from batch_sync import run_batch_sync
         run_batch_sync()
         self.last_sync_time = time.time()
@@ -128,7 +128,7 @@ class ClassroomMonitor:
 
             # --- AUTO SYNC (Every 5 minutes) ---
             if now_ts - self.last_sync_time > 300: # 5 minutes
-                print("[Monitor] ⏱️ 5-minute Auto-Sync triggered...")
+                print("[Monitor] [WAIT] 5-minute Auto-Sync triggered...")
                 from batch_sync import run_batch_sync
                 run_batch_sync()
                 self.last_sync_time = now_ts
@@ -139,12 +139,12 @@ class ClassroomMonitor:
                 self.poll_counter = 0
 
                 if self.sync.check_provision_requested():
-                    print("[Monitor] 🔄 Re-provision requested by Principal — downloading resources...")
+                    print("[Monitor] [REFRESH] Re-provision requested by Principal - downloading resources...")
                     self.provision()
                     self.start_engines()
 
                 elif self.sync.check_sync_requested():
-                    print("[Monitor] 📤 Manual sync requested by Principal — running batch sync...")
+                    print("[Monitor] [SYNC] Manual sync requested by Principal - running batch sync...")
                     from batch_sync import run_batch_sync
                     run_batch_sync()
                     self.last_sync_time = time.time()
@@ -175,7 +175,7 @@ class ClassroomMonitor:
                 type='TRANSCRIPT',
                 transcript=ft['text']
             )
-            print(f"[Monitor] 💾 Background Transcript saved to DB:\n  -> {ft['text']}")
+            print(f"[Monitor] [SAVE] Background Transcript saved to DB:\n  -> {ft['text']}")
 
         # 0b. Get current teacher name for hysteresis if already present
         current_name = None
@@ -307,7 +307,7 @@ class ClassroomMonitor:
                 type='SNAPSHOT',
                 image_path=image_path
             )
-            print(f"[Monitor] 📸 Proof snapshot logged: {os.path.basename(image_path)}")
+            print(f"[Monitor] [CAM] Proof snapshot logged: {os.path.basename(image_path)}")
 
 if __name__ == "__main__":
     monitor = ClassroomMonitor()
@@ -330,6 +330,6 @@ if __name__ == "__main__":
                     type='TRANSCRIPT',
                     transcript=ft['text']
                 )
-                print(f"[Monitor] 💾 Final Transcript saved:\n  -> {ft['text']}")
+                print(f"[Monitor] [SAVE] Final Transcript saved:\n  -> {ft['text']}")
         
         print("[Main] Cleanup finished. Goodbye!")

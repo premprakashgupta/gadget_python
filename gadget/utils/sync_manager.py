@@ -99,10 +99,10 @@ class SyncManager:
                 timeout=15
             )
             if res.status_code != 200:
-                print(f"[Provision] ❌ Server error: {res.status_code} — {res.text[:100]}")
+                print(f"[Provision] [X] Server error: {res.status_code} - {res.text[:100]}")
                 return None
         except Exception as e:
-            print(f"[Provision] ❌ Cannot reach server: {e}")
+            print(f"[Provision] [X] Cannot reach server: {e}")
             return None
 
         data = res.json()
@@ -118,7 +118,7 @@ class SyncManager:
             name     = teacher.get('name', 'Unknown')
             face_url = teacher.get('faceImageUrl')
             if not face_url:
-                print(f"[Provision]   ⚠️  {name} — no face image on server, skipping")
+                print(f"[Provision]   [!] {name} - no face image on server, skipping")
                 skipped += 1
                 continue
 
@@ -128,12 +128,12 @@ class SyncManager:
                 if img_res.status_code == 200:
                     with open(save_path, 'wb') as f:
                         f.write(img_res.content)
-                    print(f"[Provision]   ✅  {name} face downloaded → {save_path}")
+                    print(f"[Provision]   [OK] {name} face downloaded -> {save_path}")
                     downloaded += 1
                 else:
-                    print(f"[Provision]   ❌  {name} face URL returned {img_res.status_code}")
+                    print(f"[Provision]   [X] {name} face URL returned {img_res.status_code}")
             except Exception as e:
-                print(f"[Provision]   ❌  {name} download error: {e}")
+                print(f"[Provision]   [X] {name} download error: {e}")
 
         print(f"[Provision] Faces: {downloaded} downloaded, {skipped} skipped (no image)")
 
@@ -149,10 +149,10 @@ class SyncManager:
             with open(config_path, 'w') as f:
                 _yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True)
 
-            print(f"[Provision] ✅ Monitoring window set: "
-                  f"{monitoring_window['startTime']} → {monitoring_window['endTime']}")
+            print(f"[Provision] [OK] Monitoring window set: "
+                  f"{monitoring_window['startTime']} -> {monitoring_window['endTime']}")
         except Exception as e:
-            print(f"[Provision] ⚠️  Could not update config.yaml: {e}")
+            print(f"[Provision] [!] Could not update config.yaml: {e}")
 
         # ── Tell server provisioning is done ──────────────────────────────────
         try:
@@ -163,7 +163,7 @@ class SyncManager:
         except Exception:
             pass
 
-        print(f"[Provision] ✅ Done — gadget provisioned successfully")
+        print(f"[Provision] [OK] Done - gadget provisioned successfully")
         return data
 
     def check_provision_requested(self):
