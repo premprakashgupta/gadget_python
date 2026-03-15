@@ -62,6 +62,46 @@ class VisionEngine:
         self.teaching_zone = (0.1, 0.1, 0.9, 0.9)
             
         self.load_known_faces()
+        
+        # 4. Persistent Camera Connection
+        self.cap = None
+        self._init_camera()
+
+    def _init_camera(self):
+        """Initializes or re-initializes the persistent camera connection."""
+        if self.cap and self.cap.isOpened():
+            self.cap.release()
+            
+        # Try configured index first, then 0-5
+        indices_to_try = [self.camera_index, 0, 1, 2, 3, 4, 5]
+        seen_indices = []
+        
+        for idx in indices_to_try:
+            if idx in seen_indices: continue
+            seen_indices.append(idx)
+            
+            # Try V4L2 backend first
+            cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    print(f"[VisionEngine] 🎥 Connected to camera {idx} (V4L2)")
+                    self.cap = cap
+                    return
+            cap.release()
+            
+            # Default backend
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, _ = cap.read()
+                if ret:
+                    print(f"[VisionEngine] 🎥 Connected to camera {idx} (Default)")
+                    self.cap = cap
+                    return
+            cap.release()
+            
+        print("⚠️ [VisionEngine] Could not find any working camera.")
+        self.cap = None
 
     def get_encodings(self, frame):
         """Returns a list of (embedding, face_center) for ALL faces found in the frame."""
@@ -204,12 +244,21 @@ class VisionEngine:
 
     def identify_teacher(self, frame=None, current_teacher_name=None, detection_threshold=0.60):
         if frame is None:
-            video_capture = self._get_camera()
-            if not video_capture.isOpened():
+            if not self.cap or not self.cap.isOpened():
+                self._init_camera()
+            
+            if not self.cap or not self.cap.isOpened():
                 return "Camera failed (Not opened)", False, 0.0, None
             
-            ret, frame = video_capture.read()
-            video_capture.release()
+            # Clear buffer by reading a few frames if it was idle? 
+            # Or just take the latest.
+            ret, frame = self.cap.read()
+            if not ret:
+                # Try one more time/re-init
+                self._init_camera()
+                if self.cap:
+                    ret, frame = self.cap.read()
+            
             if not ret:
                 return "Camera failed (No frame)", False, 0.0, None
         
@@ -258,21 +307,33 @@ class VisionEngine:
         return best_match if best_match else "Unknown Teacher", is_in_zone, best_overall_sim, faces
         
     def capture_board(self, save_path):
-        video_capture = self._get_camera()
-        if not video_capture.isOpened():
+        if not self.cap or not self.cap.isOpened():
+            self._init_camera()
+            
+        if not self.cap or not self.cap.isOpened():
             return False
             
-        video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-        for _ in range(5): video_capture.read()
-        ret, frame = video_capture.read()
+        # Temporarily increase resolution for snapshot
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        
+        # Flush buffer
+        for _ in range(5): self.cap.read()
+        ret, frame = self.cap.read()
+        
+        # Reset resolution for faster monitoring
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
         if ret:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             cv2.imwrite(save_path, frame)
-            video_capture.release()
             return True
-        video_capture.release()
         return False
+
+    def __del__(self):
+        if hasattr(self, 'cap') and self.cap:
+            self.cap.release()
 
 if __name__ == "__main__":
     v = VisionEngine("data/known_faces")

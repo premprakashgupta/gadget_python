@@ -1,0 +1,9 @@
+Starting camera test
+Testing index 0
+  V4L2 0: Opened=True Read=True
+  Default 0: Opened=True Read=True
+Testing index 1
+Testing index 2
+Testing index 3
+Testing index 4
+Testing index 5
