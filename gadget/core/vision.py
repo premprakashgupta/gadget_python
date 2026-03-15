@@ -175,13 +175,25 @@ class VisionEngine:
         
         print(f"[VisionEngine] ✅ Total {len(self.known_face_names)} faces loaded.")
 
+    def _get_camera(self):
+        """Helper to get a reliable video capture object."""
+        # Try V4L2 backend first (best for Linux/Raspberry Pi)
+        cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
+        if not cap.isOpened():
+            # Fallback to backend auto-selection
+            cap = cv2.VideoCapture(self.camera_index)
+        return cap
+
     def identify_teacher(self, frame=None, current_teacher_name=None, detection_threshold=0.60):
         if frame is None:
-            video_capture = cv2.VideoCapture(self.camera_index)
+            video_capture = self._get_camera()
+            if not video_capture.isOpened():
+                return "Camera failed (Not opened)", False, 0.0, None
+            
             ret, frame = video_capture.read()
             video_capture.release()
             if not ret:
-                return "Camera failed", False, 0.0, None
+                return "Camera failed (No frame)", False, 0.0, None
         
         all_results = self.get_encodings(frame)
         if not all_results or len(self.known_face_encodings) == 0:
@@ -228,7 +240,10 @@ class VisionEngine:
         return best_match if best_match else "Unknown Teacher", is_in_zone, best_overall_sim, faces
         
     def capture_board(self, save_path):
-        video_capture = cv2.VideoCapture(self.camera_index)
+        video_capture = self._get_camera()
+        if not video_capture.isOpened():
+            return False
+            
         video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         for _ in range(5): video_capture.read()

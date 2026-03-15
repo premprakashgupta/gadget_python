@@ -1,0 +1,16 @@
+crw-rw----+ 1 root video 81,  1 Mar 15 16:23 /dev/video0
+crw-rw----+ 1 root video 81,  2 Mar 15 16:23 /dev/video1
+crw-rw----+ 1 root video 81,  3 Mar 15 16:23 /dev/video10
+crw-rw----+ 1 root video 81,  7 Mar 15 16:23 /dev/video11
+crw-rw----+ 1 root video 81, 13 Mar 15 16:23 /dev/video12
+crw-rw----+ 1 root video 81,  4 Mar 15 16:23 /dev/video13
+crw-rw----+ 1 root video 81,  5 Mar 15 16:23 /dev/video14
+crw-rw----+ 1 root video 81,  6 Mar 15 16:23 /dev/video15
+crw-rw----+ 1 root video 81,  8 Mar 15 16:23 /dev/video16
+crw-rw----+ 1 root video 81, 14 Mar 15 16:23 /dev/video18
+crw-rw----+ 1 root video 81,  0 Mar 15 16:23 /dev/video19
+crw-rw----+ 1 root video 81,  9 Mar 15 16:23 /dev/video20
+crw-rw----+ 1 root video 81, 10 Mar 15 16:23 /dev/video21
+crw-rw----+ 1 root video 81, 11 Mar 15 16:23 /dev/video22
+crw-rw----+ 1 root video 81, 12 Mar 15 16:23 /dev/video23
+crw-rw----+ 1 root video 81, 15 Mar 15 16:23 /dev/video31
