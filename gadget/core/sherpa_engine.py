@@ -104,13 +104,19 @@ class SherpaAudioEngine:
         self.is_recording = True
         self.frames_buffer = []
         
-        self.stream = sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=1,
-            dtype='float32',
-            callback=self._audio_callback
-        )
-        self.stream.start()
+        try:
+            self.stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                dtype='float32',
+                callback=self._audio_callback
+            )
+            self.stream.start()
+        except Exception as e:
+            print(f"⚠️ [SherpaEngine] Audio disabled. Could not connect to microphone: {e}")
+            print("⚠️ [SherpaEngine] Please ensure a USB audio adapter with a microphone is plugged in.")
+            self.is_recording = False
+            self.stream = None
 
     def _transcribe_worker_loop(self):
         """Background thread that waits for audio chunks and transcribes them in parallel."""
