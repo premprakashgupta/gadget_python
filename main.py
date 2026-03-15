@@ -77,12 +77,16 @@ class ClassroomMonitor:
         )
         
         # 2. Start Audio
-        print("[2/2] [MIC] Starting Audio Engine (loading Sherpa-ONNX AI)...")
         sherpa_cfg = self.config.get('sherpa', {})
-        self.audio = SherpaAudioEngine(
-            model_dir=sherpa_cfg.get('model_dir', 'models/sherpa-onnx-whisper-base'),
-            sample_rate=sherpa_cfg.get('sample_rate', 16000)
-        )
+        if sherpa_cfg.get('enabled', True):
+            print("[2/2] [MIC] Starting Audio Engine (loading Sherpa-ONNX AI)...")
+            self.audio = SherpaAudioEngine(
+                model_dir=sherpa_cfg.get('model_dir', 'models/sherpa-onnx-whisper-base'),
+                sample_rate=sherpa_cfg.get('sample_rate', 16000)
+            )
+        else:
+            print("[2/2] [MIC] Audio Engine disabled in config.")
+            self.audio = None
         
         # 3. Load Metadata
         print("[3/3] [LIST] Syncing teacher metadata...")
@@ -167,15 +171,16 @@ class ClassroomMonitor:
 
     def monitoring_step(self):
         # 0. Check for completed background transcripts
-        finished_transcripts = self.audio.get_finished_transcripts()
-        for ft in finished_transcripts:
-            insert_activity(
-                local_att_id=ft['local_att_id'],
-                timestamp=ft['timestamp'],
-                type='TRANSCRIPT',
-                transcript=ft['text']
-            )
-            print(f"[Monitor] [SAVE] Background Transcript saved to DB:\n  -> {ft['text']}")
+        if self.audio:
+            finished_transcripts = self.audio.get_finished_transcripts()
+            for ft in finished_transcripts:
+                insert_activity(
+                    local_att_id=ft['local_att_id'],
+                    timestamp=ft['timestamp'],
+                    type='TRANSCRIPT',
+                    transcript=ft['text']
+                )
+                print(f"[Monitor] [SAVE] Background Transcript saved to DB:\n  -> {ft['text']}")
 
         # 0b. Get current teacher name for hysteresis if already present
         current_name = None
@@ -227,7 +232,8 @@ class ClassroomMonitor:
                 self.last_transcript_time = now_ts
                 self.last_snapshot_time = now_ts
                 print(f"[Event] Teacher IN: {teacher_name}. Starting audio capture.")
-                self.audio.start_recording()
+                if self.audio:
+                    self.audio.start_recording()
         
         # EVENT: WALK OUT / EXIT
         else:
@@ -260,7 +266,8 @@ class ClassroomMonitor:
         if self.active_local_att:
             # Save final transcript before leaving
             id_to_mark = self.active_local_att['id']
-            self.process_transcript()
+            if self.audio:
+                self.process_transcript()
             
             from gadget.utils.local_db import _conn
             with _conn() as conn:
@@ -284,7 +291,7 @@ class ClassroomMonitor:
             return False
 
     def process_transcript(self):
-        if not self.is_present or not self.active_local_att:
+        if not self.is_present or not self.active_local_att or not self.audio:
             return
         
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
