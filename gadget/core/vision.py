@@ -16,8 +16,26 @@ class VisionEngine:
         self.known_face_names = []
         
         # 1. Init Haar Cascades for fast face detection (Frontal + Profile)
-        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        self.profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+        # Fix for 'AttributeError: module cv2 has no attribute data' on some systems
+        frontal_path = 'models/haarcascade_frontalface_default.xml'
+        profile_path = 'models/haarcascade_profileface.xml'
+        
+        # fallback to cv2.data if local files aren't found
+        if not os.path.exists(frontal_path):
+            if hasattr(cv2, 'data'):
+                frontal_path = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml')
+                profile_path = os.path.join(cv2.data.haarcascades, 'haarcascade_profileface.xml')
+            else:
+                # Last resort fallbacks for Debian
+                frontal_path = '/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml'
+                profile_path = '/usr/share/opencv4/haarcascades/haarcascade_profileface.xml'
+
+        print(f"[VisionEngine] Loading frontal cascade from {frontal_path}")
+        self.face_cascade = cv2.CascadeClassifier(frontal_path)
+        self.profile_cascade = cv2.CascadeClassifier(profile_path)
+        
+        if self.face_cascade.empty():
+            print(f"⚠️ [VisionEngine] Warning: Frontal cascade is empty! Path: {frontal_path}")
         
         # 2. Init MobileNetV3 via OpenCV DNN
         onnx_model_path = os.path.join(os.path.dirname(__file__), '../../models/mobilenet_v3_small.onnx')
