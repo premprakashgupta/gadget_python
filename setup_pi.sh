@@ -2,36 +2,88 @@
 # Smart Classroom Gadget - Automated Setup Script
 # Run this on your Raspberry Pi: cd gadget-python && chmod +x setup_pi.sh && ./setup_pi.sh
 
-echo "🚀 Starting Smart Classroom Gadget Setup (Optimized for RPi)..."
+# 1. Setup Logging
+LOG_FILE="setup_log.txt"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
-# 1. Update and Install System Dependencies
-echo "📦 Installing system dependencies..."
+echo "-------------------------------------------------------"
+echo "🚀 Starting Smart Classroom Gadget Setup: $(date)"
+echo "📝 Full log will be saved to: $(pwd)/$LOG_FILE"
+echo "-------------------------------------------------------"
+
+# 2. Update and Install System Dependencies
+echo "📦 Step 1: Installing system dependencies..."
 sudo apt-get update
 # We install python3-opencv from apt because building it via pip on RPi is extremely slow/fails.
+# libatlas-base-dev and libportaudio2 are required for numpy and sounddevice.
 sudo apt-get install -y python3-venv python3-pip python3-opencv libatlas-base-dev libportaudio2
 
-# 2. Setup Directory Structure
+# 3. Setup Directory Structure
+echo "📍 Step 2: Setting up directory structure..."
 INSTALL_DIR=$(pwd)
-echo "📍 Base Directory: $INSTALL_DIR"
+echo "   Base Directory: $INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/data"
+mkdir -p "$INSTALL_DIR/config"
 
-# 3. Create Virtual Environment with System Site Packages
-# This allows us to use the 'cv2' installed via apt-get
-echo "🐍 Creating virtual environment (using system-site-packages for OpenCV)..."
+# 4. Create Virtual Environment with System Site Packages
+# This allows us to use the 'cv2' and other system-provided AI/Vision libraries.
+echo "🐍 Step 3: Creating Python virtual environment..."
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 
-# 4. Install Python Packages
+# 5. Install Python Packages
 echo "pip: Installing requirements..."
 pip install --upgrade pip
-# We EXCLUDE onnxruntime here as we now use cv2.dnn for inference
+# We EXCLUDE onnxruntime here as we now use cv2.dnn for high-performance vision on RPi.
 pip install sounddevice requests pyyaml numpy sherpa-onnx
 
-# 5. Run Model Setup
-echo "📥 Downloading AI Models..."
+# 6. Run Model Setup
+echo "📥 Step 4: Downloading/Verifying AI Models..."
 python setup_models.py
 
-# 6. Configure systemd service
-echo "⚙️ Configuring auto-start service..."
+# 7. Configure config.yaml
+# config.yaml is in .gitignore to prevent checking in machine-specific settings or secrets.
+# Here we create a default one if it doesn't exist.
+echo "⚙️ Step 5: Configuring config.yaml..."
+CONFIG_FILE="$INSTALL_DIR/config/config.yaml"
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "   Generating default config.yaml..."
+    cat <<EOF > "$CONFIG_FILE"
+api:
+  url: http://10.145.70.89:4000  # Defaulting to your laptop IP
+cloud:
+  enabled: false
+  provider: google_drive
+monitoring:
+  camera_index: 0
+  end_time: '22:00'
+  interval_seconds: 5
+  snapshot_interval_seconds: 30
+  start_time: '08:00'
+  transcript_interval_seconds: 25
+sherpa:
+  model_dir: models/sherpa-onnx-whisper-tiny.en
+  sample_rate: 16000
+storage:
+  captures_dir: data/captures
+  known_faces_dir: data/known_faces
+  reports_dir: data/reports
+EOF
+    echo "   ✅ Created $CONFIG_FILE. Please edit it if your IP changes."
+else
+    echo "   ✅ $CONFIG_FILE already exists. Skipping creation."
+fi
+
+# 8. Database Clean/Setup
+# gadget_local.db is the main buffer for attendance and activity.
+# We remove legacy 'local.db' if it exists to avoid confusion.
+if [ -f "data/local.db" ]; then
+    echo "🧹 Cleaning up legacy database: data/local.db"
+    rm "data/local.db"
+fi
+
+# 9. Configure systemd service
+echo "⚙️ Step 6: Configuring auto-start service..."
 SERVICE_FILE="smart_classroom.service"
 
 cat <<EOF > $SERVICE_FILE
@@ -42,7 +94,7 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$INSTALL_DIR
-# Run with unbuffered output to see logs in journalctl immediately
+# Run with unbuffered output (-u) so logs appear in real-time in journalctl
 ExecStart=$INSTALL_DIR/.venv/bin/python -u main.py
 Restart=always
 RestartSec=10
@@ -57,10 +109,11 @@ sudo cp $SERVICE_FILE /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable smart_classroom.service
 
-echo "✅ Setup Complete!"
+echo "-------------------------------------------------------"
+echo "✅ Setup Complete at $(date)!"
 echo "-------------------------------------------------------"
 echo "Next Steps:"
-echo "1. Edit $INSTALL_DIR/config/config.yaml and set your laptop's IP."
-echo "2. Run 'sudo systemctl start smart_classroom.service'."
-echo "3. Run 'journalctl -u smart_classroom.service -f' to see logs."
+echo "1. Run 'sudo systemctl start smart_classroom.service' to begin."
+echo "2. Run 'journalctl -u smart_classroom.service -f' to see live activity."
+echo "3. Visit the Super Admin Dashboard to activate this device."
 echo "-------------------------------------------------------"
