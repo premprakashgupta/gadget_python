@@ -37,14 +37,21 @@ class VisionEngine:
         if self.face_cascade.empty():
             print(f"⚠️ [VisionEngine] Warning: Frontal cascade is empty! Path: {frontal_path}")
         
-        # 2. Init MobileNetV3 via OpenCV DNN
-        onnx_model_path = os.path.join(os.path.dirname(__file__), '../../models/mobilenet_v3_small.onnx')
+        # 2. Init Face Recognition (SFace) via OpenCV DNN
+        onnx_model_path = 'models/face_recognition_sface_2021dec.onnx'
         if not os.path.exists(onnx_model_path):
-             # Fallback to local 'models' if relative fails
-             onnx_model_path = 'models/mobilenet_v3_small.onnx'
+             onnx_model_path = os.path.join(os.path.dirname(__file__), '../../models/face_recognition_sface_2021dec.onnx')
              
-        print(f"[VisionEngine] Loading model via OpenCV DNN from {onnx_model_path}")
-        self.net = cv2.dnn.readNetFromONNX(onnx_model_path)
+        print(f"[VisionEngine] Loading SFace model from {onnx_model_path}")
+        try:
+            # OpenCV 4.5.4+ has built-in FaceRecognizerSF
+            self.face_recognizer = cv2.FaceRecognizerSF.create(onnx_model_path, "")
+            self.use_sface = True
+        except Exception as e:
+            print(f"⚠️ [VisionEngine] Could not init FaceRecognizerSF: {e}")
+            print("Fallback to generic DNN loading...")
+            self.net = cv2.dnn.readNetFromONNX(onnx_model_path)
+            self.use_sface = False
         
         # Preprocessing constants (Matching torchvision.transforms.Normalize)
         self.mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 3).astype(np.float32)
@@ -90,21 +97,29 @@ class VisionEngine:
             
             if face_crop.size == 0: continue
             
-            # --- ONNX Preprocessing ---
-            # Resize
-            face_resize = cv2.resize(face_crop, (224, 224))
-            # BGR to RGB
-            face_rgb = cv2.cvtColor(face_resize, cv2.COLOR_BGR2RGB)
-            # Normalize (0-1)
-            face_norm = face_rgb.astype(np.float32) / 255.0
-            # Mean/Std subtraction
-            face_norm = (face_norm - self.mean) / self.std
-            # HWC to CHW and add batch dimension
-            face_input = np.transpose(face_norm, (2, 0, 1))[np.newaxis, :]
-            
-            # --- OpenCV DNN Inference ---
-            self.net.setInput(face_input)
-            embedding = self.net.forward()
+            # --- SFace / DNN Inference ---
+            if self.use_sface:
+                # SFace expects 112x112
+                face_resize = cv2.resize(face_crop, (112, 112))
+                # SFace alignCrop normally needs landmarks, but we can try direct feature extraction
+                # or just use generic DNN if alignCrop fails. 
+                # For Haar results, we use the generic DNN path or SFace.feature on the crop.
+                try:
+                    # SFace expects BGR 112x112
+                    embedding = self.face_recognizer.feature(face_resize)
+                except:
+                    self.net.setInput(cv2.dnn.blobFromImage(face_resize, 1.0, (112, 112), (0, 0, 0), swapRB=True))
+                    embedding = self.net.forward()
+            else:
+                # Legacy MobileNet / Generic Path
+                face_resize = cv2.resize(face_crop, (224, 224))
+                face_rgb = cv2.cvtColor(face_resize, cv2.COLOR_BGR2RGB)
+                face_norm = face_rgb.astype(np.float32) / 255.0
+                face_norm = (face_norm - self.mean) / self.std
+                face_input = np.transpose(face_norm, (2, 0, 1))[np.newaxis, :]
+                
+                self.net.setInput(face_input)
+                embedding = self.net.forward()
             
             # Normalize embedding (L2)
             norm = np.linalg.norm(embedding, ord=2, axis=1, keepdims=True)

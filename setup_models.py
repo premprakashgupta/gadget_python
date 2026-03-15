@@ -58,8 +58,9 @@ def main():
 
     # 2. Vision Models (MobileNetV3 ONNX)
     # We download this if not already present
-    mobilenet_url = "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/mobilenet_v3_small.onnx"
-    download_file(mobilenet_url, "models/mobilenet_v3_small.onnx")
+    # Replaced MobileNetV3 with SFace as it's more compatible with OpenCV DNN on RPi
+    sface_url = "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/face_recognition_sface_2021dec.onnx"
+    download_file(sface_url, "models/face_recognition_sface_2021dec.onnx")
 
     # 3. Haar Cascades (Fix for cv2.data attribute error on some systems)
     base_url = "https://raw.githubusercontent.com/opencv/opencv/4.x/data/haarcascades/"
