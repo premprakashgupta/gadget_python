@@ -54,16 +54,20 @@ class SyncManager:
 
     def check_activation_status(self):
         try:
-            response = requests.get(f"{self.base_url}/api/gadgets/status/{self.hardware_id}")
+            url = f"{self.base_url}/api/gadgets/status/{self.hardware_id}"
+            response = requests.get(url, timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                # Consider active if we have a secret, regardless of exact status string
+                # print(f"[SyncManager] Status check: {data}")
                 if data.get('deviceSecret'):
                     self.school_id = data['schoolId']
                     self.device_secret = data['deviceSecret']
                     return True
+            else:
+                print(f"[SyncManager] Activation poll failed: {response.status_code}")
             return False
-        except:
+        except Exception as e:
+            print(f"[SyncManager] Activation poll error: {e}")
             return False
 
     def _get_headers(self):
