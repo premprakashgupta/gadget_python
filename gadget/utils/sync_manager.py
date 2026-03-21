@@ -118,7 +118,8 @@ class SyncManager:
         # ── Download face images ──────────────────────────────────────────────
         downloaded = 0
         skipped    = 0
-        for teacher in teachers:
+        total_teachers = len(teachers)
+        for i, teacher in enumerate(teachers):
             name     = teacher.get('name', 'Unknown')
             face_url = teacher.get('faceImageUrl')
             if not face_url:
@@ -132,7 +133,7 @@ class SyncManager:
                 if img_res.status_code == 200:
                     with open(save_path, 'wb') as f:
                         f.write(img_res.content)
-                    print(f"[Provision]   [OK] {name} face downloaded -> {save_path}")
+                    print(f"[Provision]   [OK] ({i+1}/{total_teachers}) {name} face downloaded")
                     downloaded += 1
                 else:
                     print(f"[Provision]   [X] {name} face URL returned {img_res.status_code}")

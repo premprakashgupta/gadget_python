@@ -45,9 +45,13 @@ class ClassroomMonitor:
     def wait_for_activation(self):
         print(f"Device Discovery ID: {self.sync.hardware_id}")
         print("Waiting for Super Admin activation in web portal...")
+        count = 0
         while not self.sync.check_activation_status():
+            count += 1
+            if count % 6 == 0: # Every minute
+                print(f"  ... still waiting for activation ({count//6} min elapsed)")
             time.sleep(10)
-        print(f"Device Activated for School ID: {self.sync.school_id}")
+        print(f"✅ Device Activated for School ID: {self.sync.school_id}")
 
     def provision(self):
         """Download face images from server and sync monitoring window from timetable."""
@@ -127,8 +131,13 @@ class ClassroomMonitor:
 
             if self.is_monitoring_time():
                 self.monitoring_step()
+                # Added sleep to prevent CPU hammering and give visual feedback
+                interval = self.config['monitoring'].get('interval_seconds', 5)
+                # print(f"[Monitor] Cycle ended. Waiting {interval}s...")
+                time.sleep(interval)
             else:
                 self.handle_out_of_monitoring()
+                print(f"[Monitor] {datetime.datetime.now().strftime('%H:%M:%S')} - Outside monitoring hours. Waiting 30s...")
                 time.sleep(30)
 
             # --- AUTO SYNC (Every 5 minutes) ---

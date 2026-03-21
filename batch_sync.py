@@ -86,11 +86,12 @@ def run_batch_sync():
 
     # ── Phase 1: Upload attendance ─────────────────────────────────────────────
     pending_att = get_unsynced_attendance()
+    total_att = len(pending_att)
     if not pending_att:
         print("    Attendance: nothing to sync.")
     else:
-        print(f"    Uploading {len(pending_att)} attendance record(s)...")
-        for att in pending_att:
+        print(f"    Uploading {total_att} attendance record(s)...")
+        for i, att in enumerate(pending_att):
             result = sync.sync_attendance(
                 teacher_id=att['teacher_id'],
                 date=att['date'],
@@ -100,21 +101,25 @@ def run_batch_sync():
             )
             if result and result.get('id'):
                 set_attendance_synced(att['id'], result['id'])
-                print(f"        #{att['id']}  teacher={att['teacher_id']}  {att['date']}  ->  server_id={result['id']}")
+                # print(f"        #{att['id']}  teacher={att['teacher_id']}  {att['date']}  ->  server_id={result['id']}")
                 att_ok += 1
             else:
                 print(f"        #{att['id']}  failed — will retry next sync")
                 att_fail += 1
+            
+            if (i+1) % 5 == 0 or i+1 == total_att:
+                print(f"        Progress: {i+1}/{total_att} attendance records processed...")
 
     print()
 
     # ── Phase 2: Upload session activities (only when parent att is synced) ─────
     pending_act = get_unsynced_activities()
+    total_act = len(pending_act)
     if not pending_act:
         print("    Activities: nothing to sync.")
     else:
-        print(f"    Uploading {len(pending_act)} activity record(s)...")
-        for act in pending_act:
+        print(f"    Uploading {total_act} activity record(s)...")
+        for i, act in enumerate(pending_act):
             result = sync.log_session_activity(
                 attendance_id=act['server_att_id'],
                 timestamp=act['timestamp'],
@@ -126,12 +131,15 @@ def run_batch_sync():
             label = act['type']
             if result and result.get('id'):
                 set_activity_synced(act['id'])
-                desc = (act['transcript'] or '')[:40] if act['type'] == 'TRANSCRIPT' else os.path.basename(act['image_path'] or 'N/A')
-                print(f"        [{label}] {desc}  ->  server_id={result['id']}")
+                # desc = (act['transcript'] or '')[:40] if act['type'] == 'TRANSCRIPT' else os.path.basename(act['image_path'] or 'N/A')
+                # print(f"        [{label}] {desc}  ->  server_id={result['id']}")
                 act_ok += 1
             else:
-                print(f"        [{label}] failed — will retry")
+                print(f"        [{label}] upload failed at record {i+1}")
                 act_fail += 1
+            
+            if (i+1) % 10 == 0 or i+1 == total_act:
+                 print(f"        Progress: {i+1}/{total_act} activities processed...")
 
     # ── Tell server sync is done ───────────────────────────────────────────────
     try:
