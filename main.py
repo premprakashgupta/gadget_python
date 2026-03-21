@@ -73,7 +73,8 @@ class ClassroomMonitor:
         print("[1/2] [EYE] Starting Vision Engine (loading face models)...")
         self.vision = VisionEngine(
             self.config['storage']['known_faces_dir'],
-            self.config['monitoring']['camera_index']
+            self.config['monitoring']['camera_index'],
+            use_fswebcam=self.config['monitoring'].get('use_fswebcam', False)
         )
         
         # 2. Start Audio

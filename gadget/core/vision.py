@@ -3,17 +3,23 @@ import os
 import glob
 import pickle
 import time
+import subprocess
 from PIL import Image
 import numpy as np
 
 # Optimized for Raspberry Pi using Haar Cascades + MobileNetV3 (OpenCV DNN)
 
 class VisionEngine:
-    def __init__(self, known_faces_dir, camera_index=0):
+    def __init__(self, known_faces_dir, camera_index=0, use_fswebcam=True):
         self.known_faces_dir = known_faces_dir
         self.camera_index = camera_index
+        self.use_fswebcam = use_fswebcam
         self.known_face_encodings = []
         self.known_face_names = []
+        
+        # Ensure temp directory for fswebcam
+        self.temp_dir = "data/temp_frames"
+        os.makedirs(self.temp_dir, exist_ok=True)
         
         # 1. Init Haar Cascades for fast face detection (Frontal + Profile)
         # Fix for 'AttributeError: module cv2 has no attribute data' on some systems
@@ -215,52 +221,61 @@ class VisionEngine:
         
         print(f"[VisionEngine] ✅ Total {len(self.known_face_names)} faces loaded.")
 
-    def _get_camera(self):
-        """Helper to get a reliable video capture object."""
-        # Try configured index first
-        indices_to_try = [self.camera_index] + list(range(6))
+    def _capture_fswebcam(self, output_path):
+        """Captures a frame using fswebcam command line tool."""
+        dev_path = f"/dev/video{self.camera_index}"
+        try:
+            # We use a slight delay (-S 1) for auto-exposure to settle if needed
+            cmd = ["fswebcam", "-d", dev_path, "-r", "1280x720", "--no-banner", output_path]
+            # Redirecting output to avoid cluttering logs
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return os.path.exists(output_path)
+        except Exception as e:
+            print(f"⚠️ [VisionEngine] fswebcam failed: {e}")
+            return False
+
+    def _init_camera(self):
+        """Initializes or re-initializes the persistent camera connection (for OpenCV path)."""
+        if self.use_fswebcam: return # Not used in fswebcam mode
         
+        if self.cap and self.cap.isOpened():
+            self.cap.release()
+            
+        indices_to_try = [self.camera_index] + list(range(6))
         for idx in set(indices_to_try):
-            # Try V4L2 backend first (best for Linux/Raspberry Pi)
             cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
             if cap.isOpened():
                 ret, _ = cap.read()
                 if ret:
-                    print(f"[VisionEngine] 🎥 Successfully connected to camera index {idx} (V4L2)")
-                    return cap
+                    print(f"[VisionEngine] 🎥 Connected to camera {idx} (V4L2)")
+                    self.cap = cap
+                    return
             cap.release()
-            
-            # Fallback to backend auto-selection
-            cap = cv2.VideoCapture(idx)
-            if cap.isOpened():
-                ret, _ = cap.read()
-                if ret:
-                    print(f"[VisionEngine] 🎥 Successfully connected to camera index {idx} (Default)")
-                    return cap
-            cap.release()
-            
-        print("⚠️ [VisionEngine] Could not find any working camera across indices 0-5.")
-        return cv2.VideoCapture(-1) # Return a dummy/failing capture object
+        
+        print("⚠️ [VisionEngine] Could not find any working camera for OpenCV.")
+        self.cap = None
 
     def identify_teacher(self, frame=None, current_teacher_name=None, detection_threshold=0.60):
         if frame is None:
-            if not self.cap or not self.cap.isOpened():
-                self._init_camera()
-            
-            if not self.cap or not self.cap.isOpened():
-                return "Camera failed (Not opened)", False, 0.0, None
-            
-            # Clear buffer by reading a few frames if it was idle? 
-            # Or just take the latest.
-            ret, frame = self.cap.read()
-            if not ret:
-                # Try one more time/re-init
-                self._init_camera()
-                if self.cap:
-                    ret, frame = self.cap.read()
-            
-            if not ret:
-                return "Camera failed (No frame)", False, 0.0, None
+            if self.use_fswebcam:
+                temp_frame_path = os.path.join(self.temp_dir, f"frame_{int(time.time())}.jpg")
+                if self._capture_fswebcam(temp_frame_path):
+                    frame = cv2.imread(temp_frame_path)
+                    try: os.remove(temp_frame_path) 
+                    except: pass
+                
+                if frame is None:
+                    return "Camera failed (fswebcam error)", False, 0.0, None
+            else:
+                if not self.cap or not self.cap.isOpened():
+                    self._init_camera()
+                
+                if not self.cap or not self.cap.isOpened():
+                    return "Camera failed (Not opened)", False, 0.0, None
+                
+                ret, frame = self.cap.read()
+                if not ret:
+                    return "Camera failed (No frame)", False, 0.0, None
         
         all_results = self.get_encodings(frame)
         if not all_results or len(self.known_face_encodings) == 0:
@@ -307,6 +322,9 @@ class VisionEngine:
         return best_match if best_match else "Unknown Teacher", is_in_zone, best_overall_sim, faces
         
     def capture_board(self, save_path):
+        if self.use_fswebcam:
+            return self._capture_fswebcam(save_path)
+        
         if not self.cap or not self.cap.isOpened():
             self._init_camera()
             
